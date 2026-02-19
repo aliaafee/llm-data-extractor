@@ -1,0 +1,34 @@
+Extract values from the clinical note below and return a JSON object that strictly conforms to this schema:
+
+{
+  "delirium":                    "Yes" | "No" | null,
+  "age":                         <integer> | null,
+  "sex":                         "Male" | "Female" | null,
+  "comorbidities":               ["<condition>", ...] | null,
+  "baseline_cognitive_impairment": <integer 3-15> | null,
+  "site_of_pathology":           "cranial" | "spinal" | null,
+  "neurosurgical_diagnosis":     "<string>" | null,
+  "diagnosis_group":             "trauma" | "tumor" | "vascular" | "degenerative spine" | "infection" | "other neurological" | null,
+  "list_of_opioids_used":        [{"name": "<string>", "dose": "<string>", "frequency": "<string>", "duration": "<string>"}] | null,
+  "list_of_benzodiazepines_used": [{"name": "<string>", "dose": "<string>", "frequency": "<string>", "duration": "<string>"}] | null,
+  "list_of_all_medications_used": [{"name": "<string>", "dose": "<string>", "frequency": "<string>", "duration": "<string>"}] | null,
+  "sodium_imbalance":            "Yes" | "No" | null,
+  "infection":                   "Yes" | "No" | null
+}
+
+Field rules:
+- delirium: "Yes" only if delirium was diagnosed by a treating physician (Neurosurgeon, Intensivist, or Psychiatrist).
+- age: integer number of years only.
+- sex: biological sex, "Male" or "Female" only.
+- comorbidities: array of condition name strings; use null if none documented.
+- baseline_cognitive_impairment: GCS score at admission as integer (3–15).
+- site_of_pathology: "cranial" or "spinal" only.
+- diagnosis_group: pick the single closest match from the allowed values.
+- medication lists: each entry must have name, dose, frequency, and duration; use null for a field if not documented.
+- sodium_imbalance: "Yes" if Na+ < 130 mEq (hyponatremia) or Na+ > 150 mEq (hypernatremia) was documented.
+- infection: "Yes" if a documented or presumed infection is mentioned.
+
+Clinical Note:
+"""
+{{text}}
+"""
