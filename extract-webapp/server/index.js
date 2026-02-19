@@ -93,11 +93,29 @@ app.get("/health", (req, res) => {
 app.post("/upload", upload.single("file"), async (req, res) => {
   try {
     const filePath = req.file.path;
-    const text = fs.readFileSync(filePath, "utf-8");
+    const raw = fs.readFileSync(filePath, "utf-8");
     fs.unlinkSync(filePath); // delete temp file
+
+    // Try to parse as structured patient JSON; fall back to plain text
+    let text = raw;
+    let patientId = null;
+    try {
+      const parsed = JSON.parse(raw);
+      if (parsed?.patient?.id) patientId = parsed.patient.id;
+      if (parsed?.clinical_notes) text = parsed.clinical_notes;
+    } catch { /* plain text file — use as-is */ }
 
     const chunks = splitIntoChunks(text, MAX_CHUNK_CHARS);
     console.log(`Processing ${chunks.length} chunk(s) (max ${MAX_CHUNK_CHARS} chars each)`);
+
+    // Stream results via Server-Sent Events
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+    res.flushHeaders();
+
+    const send = (event, data) =>
+      res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
 
     const chunkResults = [];
     for (let i = 0; i < chunks.length; i++) {
@@ -110,13 +128,20 @@ app.post("/upload", upload.single("file"), async (req, res) => {
         ],
       });
       chunkResults.push(parseJSON(completion.choices[0].message.content));
+
+      const partial = mergeResults(chunkResults);
+      if (patientId) partial.patient_id = patientId;
+      send("progress", { chunk: i + 1, total: chunks.length, result: partial });
     }
 
     const merged = mergeResults(chunkResults);
-    res.json({ result: Object.keys(merged).length ? merged : chunkResults[0] ?? "" });
+    if (patientId) merged.patient_id = patientId;
+    send("done", { result: Object.keys(merged).length ? merged : chunkResults[0] ?? "" });
+    res.end();
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: "Something went wrong" });
+    res.write(`event: error\ndata: ${JSON.stringify({ error: "Something went wrong" })}\n\n`);
+    res.end();
   }
 });
 

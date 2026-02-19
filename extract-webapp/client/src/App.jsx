@@ -1,11 +1,11 @@
 import { useState } from "react";
-import axios from "axios";
 
 // Field definitions with render type:
 //   "scalar"  – string / number / Yes/No enum
 //   "list"    – array of strings
 //   "medlist" – array of {name, dose, frequency, duration}
 const FIELDS = [
+  { key: "patient_id",                    label: "Patient ID",                       type: "scalar"  },
   { key: "delirium",                      label: "Delirium",                         type: "scalar"  },
   { key: "age",                           label: "Age (years)",                      type: "scalar"  },
   { key: "sex",                           label: "Sex",                              type: "scalar"  },
@@ -44,7 +44,7 @@ function MedListValue({ val }) {
   return (
     <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.9em" }}>
       <thead>
-        <tr style={{ background: "#f7f7f7" }}>
+        <tr style={{}}>
           {["Name", "Dose", "Frequency", "Duration"].map((h) => (
             <th key={h} style={innerThStyle}>{h}</th>
           ))}
@@ -75,6 +75,7 @@ function App() {
   const [result, setResult] = useState(null);
   const [raw, setRaw] = useState("");
   const [loading, setLoading] = useState(false);
+  const [progress, setProgress] = useState(null); // { chunk, total }
 
   const handleUpload = async () => {
     if (!file) return alert("Please select a file");
@@ -83,16 +84,58 @@ function App() {
     formData.append("file", file);
 
     setLoading(true);
+    setResult(null);
+    setRaw("");
+    setProgress(null);
+
     try {
-      const res = await axios.post("/upload", formData);
-      const data = res.data.result;
-      console.log("API response:", data);
-      if (data && typeof data === "object") {
-        setResult(data);
-        setRaw("");
-      } else {
-        setResult(null);
-        setRaw(String(data));
+      const response = await fetch("/upload", { method: "POST", body: formData });
+      if (!response.ok) throw new Error("Upload failed");
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        // SSE events are separated by double newlines
+        const events = buffer.split("\n\n");
+        buffer = events.pop(); // keep last incomplete block
+
+        for (const block of events) {
+          if (!block.trim()) continue;
+          let eventType = null;
+          let eventData = null;
+          for (const line of block.split("\n")) {
+            if (line.startsWith("event: ")) eventType = line.slice(7).trim();
+            else if (line.startsWith("data: ")) eventData = line.slice(6).trim();
+          }
+          if (!eventData) continue;
+          try {
+            const parsed = JSON.parse(eventData);
+            if (eventType === "progress") {
+              setProgress({ chunk: parsed.chunk, total: parsed.total });
+              if (parsed.result && typeof parsed.result === "object") {
+                setResult(parsed.result);
+              }
+            } else if (eventType === "done") {
+              setProgress(null);
+              const data = parsed.result;
+              if (data && typeof data === "object") {
+                setResult(data);
+                setRaw("");
+              } else {
+                setResult(null);
+                setRaw(String(data));
+              }
+            } else if (eventType === "error") {
+              alert("Processing failed: " + (parsed.error ?? "Unknown error"));
+            }
+          } catch { /* ignore malformed event */ }
+        }
       }
     } catch (err) {
       alert("Upload failed");
@@ -116,13 +159,19 @@ function App() {
         {loading ? "Processing..." : "Upload & Analyze"}
       </button>
 
+      {progress && (
+        <p style={{ color: "#555", marginTop: "8px" }}>
+          Processing chunk {progress.chunk} of {progress.total}…
+        </p>
+      )}
+
       {result && (
         <>
           <hr />
           <h3>Extracted Data</h3>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
-              <tr style={{ background: "#f0f0f0" }}>
+              <tr>
                 <th style={thStyle}>Field</th>
                 <th style={thStyle}>Value</th>
               </tr>
@@ -143,7 +192,7 @@ function App() {
         <>
           <hr />
           <h3>Raw Response</h3>
-          <pre style={{ whiteSpace: "pre-wrap", background: "#f8f8f8", padding: "12px" }}>{raw}</pre>
+          <pre style={{ whiteSpace: "pre-wrap", padding: "12px" }}>{raw}</pre>
         </>
       )}
     </div>
@@ -152,7 +201,7 @@ function App() {
 
 const thStyle      = { padding: "10px 12px", textAlign: "left", border: "1px solid #ccc" };
 const tdStyle      = { padding: "8px 12px", verticalAlign: "top", border: "1px solid #ccc" };
-const innerThStyle = { padding: "4px 8px", textAlign: "left", border: "1px solid #ddd", background: "#f7f7f7" };
+const innerThStyle = { padding: "4px 8px", textAlign: "left", border: "1px solid #ddd" };
 const innerTdStyle = { padding: "4px 8px", verticalAlign: "top", border: "1px solid #ddd" };
 
 export default App;
