@@ -24,17 +24,21 @@ const upload = multer({ dest: "uploads/" });
 const db = new Database(path.join(__dirname, "results.db"));
 db.exec(`
   CREATE TABLE IF NOT EXISTS results (
-    patient_id  TEXT PRIMARY KEY,
-    result      TEXT NOT NULL,
-    updated_at  TEXT NOT NULL
+    patient_id     TEXT PRIMARY KEY,
+    result         TEXT NOT NULL,
+    original_file  TEXT,
+    updated_at     TEXT NOT NULL
   )
 `);
+// Migrate existing databases that don't have the original_file column
+try { db.exec("ALTER TABLE results ADD COLUMN original_file TEXT"); } catch { /* already exists */ }
 const upsertResult = db.prepare(`
-  INSERT INTO results (patient_id, result, updated_at)
-  VALUES (@patient_id, @result, @updated_at)
+  INSERT INTO results (patient_id, result, original_file, updated_at)
+  VALUES (@patient_id, @result, @original_file, @updated_at)
   ON CONFLICT(patient_id) DO UPDATE SET
-    result     = excluded.result,
-    updated_at = excluded.updated_at
+    result        = excluded.result,
+    original_file = excluded.original_file,
+    updated_at    = excluded.updated_at
 `);
 const listResults = db.prepare("SELECT patient_id, updated_at FROM results ORDER BY updated_at DESC");
 const getResult   = db.prepare("SELECT result FROM results WHERE patient_id = ?");
@@ -166,6 +170,7 @@ app.post("/upload", upload.single("file"), async (req, res) => {
         upsertResult.run({
           patient_id: patientId,
           result: JSON.stringify(finalResult),
+          original_file: raw,
           updated_at: new Date().toISOString(),
         });
         console.log(`Saved result for patient ${patientId}`);
