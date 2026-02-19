@@ -173,24 +173,27 @@ function ResultsBrowser() {
 }
 
 function App() {
-  const [tab, setTab]             = useState("extractor"); // "extractor" | "browse"
-  const [file, setFile]           = useState(null);
-  const [result, setResult]       = useState(null);
-  const [raw, setRaw]             = useState("");
-  const [loading, setLoading]     = useState(false);
-  const [progress, setProgress]   = useState(null); // { chunk, total }
+  const [tab, setTab]           = useState("extractor");
+  const [queue, setQueue]       = useState([]); // [{id,name,status,patientId,progress,result,errorMsg}]
+  const [loading, setLoading]   = useState(false);
+  const [selected, setSelected] = useState(null); // queue item id for detail view
 
-  const handleUpload = async () => {
-    if (!file) return alert("Please select a file");
+  const updateItem = (id, patch) =>
+    setQueue((q) => q.map((item) => item.id === id ? { ...item, ...patch } : item));
 
+  const handleFilesChange = (e) => {
+    const picked = Array.from(e.target.files);
+    setQueue(picked.map((f, i) => ({
+      id: i, name: f.name, file: f,
+      status: "pending", patientId: null, progress: null, result: null, errorMsg: null,
+    })));
+    setSelected(null);
+  };
+
+  const processFile = async (item) => {
+    updateItem(item.id, { status: "processing" });
     const formData = new FormData();
-    formData.append("file", file);
-
-    setLoading(true);
-    setResult(null);
-    setRaw("");
-    setProgress(null);
-
+    formData.append("file", item.file);
     try {
       const response = await fetch("/upload", { method: "POST", body: formData });
       if (!response.ok) throw new Error("Upload failed");
@@ -204,14 +207,12 @@ function App() {
         if (done) break;
         buffer += decoder.decode(value, { stream: true });
 
-        // SSE events are separated by double newlines
         const events = buffer.split("\n\n");
-        buffer = events.pop(); // keep last incomplete block
+        buffer = events.pop();
 
         for (const block of events) {
           if (!block.trim()) continue;
-          let eventType = null;
-          let eventData = null;
+          let eventType = null, eventData = null;
           for (const line of block.split("\n")) {
             if (line.startsWith("event: ")) eventType = line.slice(7).trim();
             else if (line.startsWith("data: ")) eventData = line.slice(6).trim();
@@ -220,107 +221,139 @@ function App() {
           try {
             const parsed = JSON.parse(eventData);
             if (eventType === "progress") {
-              setProgress({ chunk: parsed.chunk, total: parsed.total });
-              if (parsed.result && typeof parsed.result === "object") {
-                setResult(parsed.result);
-              }
+              updateItem(item.id, {
+                progress: { chunk: parsed.chunk, total: parsed.total },
+                ...(parsed.result?.patient_id ? { patientId: parsed.result.patient_id } : {}),
+              });
             } else if (eventType === "done") {
-              setProgress(null);
               const data = parsed.result;
-              if (data && typeof data === "object") {
-                setResult(data);
-                setRaw("");
-              } else {
-                setResult(null);
-                setRaw(String(data));
-              }
+              updateItem(item.id, {
+                status: "done",
+                progress: null,
+                result: data,
+                patientId: data?.patient_id ?? null,
+              });
             } else if (eventType === "error") {
-              alert("Processing failed: " + (parsed.error ?? "Unknown error"));
+              updateItem(item.id, { status: "error", progress: null, errorMsg: parsed.error ?? "Unknown error" });
             }
           } catch { /* ignore malformed event */ }
         }
       }
     } catch (err) {
-      alert("Upload failed");
+      updateItem(item.id, { status: "error", progress: null, errorMsg: err.message });
+    }
+  };
+
+  const handleUpload = async () => {
+    if (queue.length === 0) return alert("Please select one or more files");
+    setLoading(true);
+    setSelected(null);
+    // Reset all to pending before starting
+    setQueue((q) => q.map((item) => ({ ...item, status: "pending", progress: null, result: null, errorMsg: null })));
+
+    // Process sequentially — read fresh queue each iteration via closure workaround
+    const snapshot = queue.map((item) => ({ ...item, status: "pending", progress: null, result: null, errorMsg: null }));
+    for (const item of snapshot) {
+      await processFile(item);
     }
     setLoading(false);
   };
 
+  const doneCount    = queue.filter((i) => i.status === "done").length;
+  const errorCount   = queue.filter((i) => i.status === "error").length;
+  const selectedItem = queue.find((i) => i.id === selected);
+
+  const statusBadge = (item) => {
+    if (item.status === "pending")    return <span style={badge("gray")}>Pending</span>;
+    if (item.status === "processing") return <span style={badge("blue")}>Chunk {item.progress?.chunk ?? "…"}/{item.progress?.total ?? "…"}</span>;
+    if (item.status === "done")       return <span style={badge("green")}>Done</span>;
+    if (item.status === "error")      return <span style={badge("red")} title={item.errorMsg}>Error</span>;
+  };
+
   return (
-    <div style={{ padding: "40px", fontFamily: "Arial", maxWidth: "900px", margin: "0" }}>
+    <div style={{ padding: "40px", fontFamily: "Arial", maxWidth: "960px", margin: "0" }}>
       <h2>Clinical Data Extractor</h2>
 
       {/* Tab bar */}
       <div style={{ display: "flex", gap: "4px", marginBottom: "24px", borderBottom: "2px solid #ddd" }}>
         {[["extractor", "Extractor"], ["browse", "Browse Results"]].map(([id, label]) => (
-          <button
-            key={id}
-            onClick={() => setTab(id)}
-            style={{
-              padding: "8px 20px",
-              border: "none",
-              borderBottom: tab === id ? "3px solid #2563eb" : "3px solid transparent",
-              background: "none",
-              fontWeight: tab === id ? "bold" : "normal",
-              color: tab === id ? "#2563eb" : "#555",
-              cursor: "pointer",
-              fontSize: "1em",
-              marginBottom: "-2px",
-            }}
-          >
-            {label}
-          </button>
+          <button key={id} onClick={() => setTab(id)} style={{
+            padding: "8px 20px", border: "none",
+            borderBottom: tab === id ? "3px solid #2563eb" : "3px solid transparent",
+            background: "none", fontWeight: tab === id ? "bold" : "normal",
+            color: tab === id ? "#2563eb" : "#555", cursor: "pointer", fontSize: "1em", marginBottom: "-2px",
+          }}>{label}</button>
         ))}
       </div>
 
       {tab === "extractor" && (
         <>
-          <input
-            type="file"
-            accept=".txt,.json"
-            onChange={(e) => setFile(e.target.files[0])}
-          />
+          <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
+            <input type="file" accept=".txt,.json" multiple onChange={handleFilesChange} />
+            <button onClick={handleUpload} disabled={loading || queue.length === 0}>
+              {loading ? `Processing… (${doneCount + errorCount}/${queue.length})` : `Upload & Analyze${queue.length > 1 ? ` (${queue.length} files)` : ""}`}
+            </button>
+          </div>
 
-          <br /><br />
-
-          <button onClick={handleUpload} disabled={loading}>
-            {loading ? "Processing..." : "Upload & Analyze"}
-          </button>
-
-          {progress && (
-            <p style={{ color: "#555", marginTop: "8px" }}>
-              Processing chunk {progress.chunk} of {progress.total}…
-            </p>
-          )}
-
-          {result && (
+          {queue.length > 0 && (
             <>
-              <hr />
-              <h3>Extracted Data</h3>
+              <hr style={{ margin: "20px 0" }} />
               <table style={{ width: "100%", borderCollapse: "collapse" }}>
                 <thead>
                   <tr>
-                    <th style={thStyle}>Field</th>
-                    <th style={thStyle}>Value</th>
+                    <th style={thStyle}>File</th>
+                    <th style={thStyle}>Patient ID</th>
+                    <th style={thStyle}>Status</th>
+                    <th style={{ ...thStyle, width: "70px" }}></th>
                   </tr>
                 </thead>
                 <tbody>
-                  {FIELDS.map(({ key, label, type }) => (
-                    <tr key={key} style={{ borderBottom: "1px solid #ddd" }}>
-                      <td style={{ ...tdStyle, fontWeight: "bold", whiteSpace: "nowrap" }}>{label}</td>
-                      <td style={tdStyle}><FieldValue type={type} val={result[key]} /></td>
+                  {queue.map((item) => (
+                    <tr key={item.id} style={{
+                      borderBottom: "1px solid #ddd",
+                      background: selected === item.id ? "#165ce7" : "transparent",
+                    }}>
+                      <td style={tdStyle}>{item.name}</td>
+                      <td style={tdStyle}>{item.patientId ?? NULL_CELL}</td>
+                      <td style={tdStyle}>{statusBadge(item)}</td>
+                      <td style={tdStyle}>
+                        {item.status === "done" && (
+                          <button
+                            onClick={() => setSelected(selected === item.id ? null : item.id)}
+                            style={viewBtnStyle}
+                          >
+                            {selected === item.id ? "Hide" : "View"}
+                          </button>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-            </>
-          )}
 
-          {raw && (
-            <>
-              <hr />
-              <h3>Raw Response</h3>
-              <pre style={{ whiteSpace: "pre-wrap", padding: "12px" }}>{raw}</pre>
+              {selectedItem?.result && (
+                <div style={{ marginTop: "16px" }}>
+                  <h3 style={{ marginBottom: "8px" }}>
+                    Extracted Data — Patient {selectedItem.patientId ?? selectedItem.name}
+                  </h3>
+                  <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                    <thead>
+                      <tr>
+                        <th style={thStyle}>Field</th>
+                        <th style={thStyle}>Value</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {FIELDS.map(({ key, label, type }) => (
+                        <tr key={key} style={{ borderBottom: "1px solid #ddd" }}>
+                          <td style={{ ...tdStyle, fontWeight: "bold", whiteSpace: "nowrap" }}>{label}</td>
+                          <td style={tdStyle}><FieldValue type={type} val={selectedItem.result[key]} /></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </>
           )}
         </>
@@ -338,5 +371,17 @@ const innerTdStyle   = { padding: "4px 8px", verticalAlign: "top", border: "1px 
 const viewBtnStyle   = { padding: "4px 12px", cursor: "pointer", fontSize: "0.9em" };
 const backBtnStyle   = { padding: "5px 14px", cursor: "pointer" };
 const refreshBtnStyle = { padding: "4px 12px", cursor: "pointer", fontSize: "0.9em" };
+
+const BADGE_COLORS = {
+  gray:  { background: "#e5e7eb", color: "#374151" },
+  blue:  { background: "#dbeafe", color: "#1d4ed8" },
+  green: { background: "#dcfce7", color: "#15803d" },
+  red:   { background: "#fee2e2", color: "#b91c1c" },
+};
+const badge = (color) => ({
+  display: "inline-block", padding: "2px 8px", borderRadius: "10px",
+  fontSize: "0.82em", fontWeight: "600", whiteSpace: "nowrap",
+  ...BADGE_COLORS[color],
+});
 
 export default App;
