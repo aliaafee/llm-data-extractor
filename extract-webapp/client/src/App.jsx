@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 
 // Field definitions with render type:
 //   "scalar"  – string / number / Yes/No enum
@@ -70,12 +70,115 @@ function FieldValue({ type, val }) {
   return <ScalarValue val={val} />;
 }
 
+function ResultsBrowser() {
+  const [list, setList]           = useState(null);   // [{patient_id, updated_at}]
+  const [selected, setSelected]   = useState(null);   // patient_id
+  const [detail, setDetail]       = useState(null);   // result object
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [error, setError]         = useState(null);
+
+  const fetchList = useCallback(async () => {
+    setError(null);
+    try {
+      const res = await fetch("/results");
+      if (!res.ok) throw new Error("Failed to load results");
+      setList(await res.json());
+    } catch (e) {
+      setError(e.message);
+    }
+  }, []);
+
+  useEffect(() => { fetchList(); }, [fetchList]);
+
+  const handleSelect = async (patientId) => {
+    setSelected(patientId);
+    setDetail(null);
+    setDetailLoading(true);
+    try {
+      const res = await fetch(`/results/${encodeURIComponent(patientId)}`);
+      if (!res.ok) throw new Error("Failed to load patient result");
+      setDetail(await res.json());
+    } catch (e) {
+      setError(e.message);
+    }
+    setDetailLoading(false);
+  };
+
+  const handleBack = () => { setSelected(null); setDetail(null); };
+
+  if (error) return <p style={{ color: "red" }}>{error}</p>;
+  if (!list)  return <p style={{ color: "#555" }}>Loading…</p>;
+
+  if (selected) {
+    return (
+      <>
+        <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "12px" }}>
+          <button onClick={handleBack} style={backBtnStyle}>← Back</button>
+          <h3 style={{ margin: 0 }}>Patient {selected}</h3>
+        </div>
+        {detailLoading && <p style={{ color: "#555" }}>Loading…</p>}
+        {detail && (
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead>
+              <tr>
+                <th style={thStyle}>Field</th>
+                <th style={thStyle}>Value</th>
+              </tr>
+            </thead>
+            <tbody>
+              {FIELDS.map(({ key, label, type }) => (
+                <tr key={key} style={{ borderBottom: "1px solid #ddd" }}>
+                  <td style={{ ...tdStyle, fontWeight: "bold", whiteSpace: "nowrap" }}>{label}</td>
+                  <td style={tdStyle}><FieldValue type={type} val={detail[key]} /></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </>
+    );
+  }
+
+  if (list.length === 0)
+    return <p style={{ color: "#777", fontStyle: "italic" }}>No processed results yet.</p>;
+
+  return (
+    <>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+        <h3 style={{ margin: 0 }}>Processed Patients</h3>
+        <button onClick={fetchList} style={refreshBtnStyle}>⟳ Refresh</button>
+      </div>
+      <table style={{ width: "100%", borderCollapse: "collapse" }}>
+        <thead>
+          <tr>
+            <th style={thStyle}>Patient ID</th>
+            <th style={thStyle}>Processed At</th>
+            <th style={{ ...thStyle, width: "80px" }}></th>
+          </tr>
+        </thead>
+        <tbody>
+          {list.map(({ patient_id, updated_at }) => (
+            <tr key={patient_id} style={{ borderBottom: "1px solid #ddd" }}>
+              <td style={tdStyle}>{patient_id}</td>
+              <td style={tdStyle}>{new Date(updated_at).toLocaleString()}</td>
+              <td style={tdStyle}>
+                <button onClick={() => handleSelect(patient_id)} style={viewBtnStyle}>View</button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </>
+  );
+}
+
 function App() {
-  const [file, setFile] = useState(null);
-  const [result, setResult] = useState(null);
-  const [raw, setRaw] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [progress, setProgress] = useState(null); // { chunk, total }
+  const [tab, setTab]             = useState("extractor"); // "extractor" | "browse"
+  const [file, setFile]           = useState(null);
+  const [result, setResult]       = useState(null);
+  const [raw, setRaw]             = useState("");
+  const [loading, setLoading]     = useState(false);
+  const [progress, setProgress]   = useState(null); // { chunk, total }
 
   const handleUpload = async () => {
     if (!file) return alert("Please select a file");
@@ -147,61 +250,93 @@ function App() {
     <div style={{ padding: "40px", fontFamily: "Arial", maxWidth: "900px", margin: "0" }}>
       <h2>Clinical Data Extractor</h2>
 
-      <input
-        type="file"
-        accept=".txt,.json"
-        onChange={(e) => setFile(e.target.files[0])}
-      />
+      {/* Tab bar */}
+      <div style={{ display: "flex", gap: "4px", marginBottom: "24px", borderBottom: "2px solid #ddd" }}>
+        {[["extractor", "Extractor"], ["browse", "Browse Results"]].map(([id, label]) => (
+          <button
+            key={id}
+            onClick={() => setTab(id)}
+            style={{
+              padding: "8px 20px",
+              border: "none",
+              borderBottom: tab === id ? "3px solid #2563eb" : "3px solid transparent",
+              background: "none",
+              fontWeight: tab === id ? "bold" : "normal",
+              color: tab === id ? "#2563eb" : "#555",
+              cursor: "pointer",
+              fontSize: "1em",
+              marginBottom: "-2px",
+            }}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
 
-      <br /><br />
-
-      <button onClick={handleUpload} disabled={loading}>
-        {loading ? "Processing..." : "Upload & Analyze"}
-      </button>
-
-      {progress && (
-        <p style={{ color: "#555", marginTop: "8px" }}>
-          Processing chunk {progress.chunk} of {progress.total}…
-        </p>
-      )}
-
-      {result && (
+      {tab === "extractor" && (
         <>
-          <hr />
-          <h3>Extracted Data</h3>
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead>
-              <tr>
-                <th style={thStyle}>Field</th>
-                <th style={thStyle}>Value</th>
-              </tr>
-            </thead>
-            <tbody>
-              {FIELDS.map(({ key, label, type }) => (
-                <tr key={key} style={{ borderBottom: "1px solid #ddd" }}>
-                  <td style={{ ...tdStyle, fontWeight: "bold", whiteSpace: "nowrap" }}>{label}</td>
-                  <td style={tdStyle}><FieldValue type={type} val={result[key]} /></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <input
+            type="file"
+            accept=".txt,.json"
+            onChange={(e) => setFile(e.target.files[0])}
+          />
+
+          <br /><br />
+
+          <button onClick={handleUpload} disabled={loading}>
+            {loading ? "Processing..." : "Upload & Analyze"}
+          </button>
+
+          {progress && (
+            <p style={{ color: "#555", marginTop: "8px" }}>
+              Processing chunk {progress.chunk} of {progress.total}…
+            </p>
+          )}
+
+          {result && (
+            <>
+              <hr />
+              <h3>Extracted Data</h3>
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <thead>
+                  <tr>
+                    <th style={thStyle}>Field</th>
+                    <th style={thStyle}>Value</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {FIELDS.map(({ key, label, type }) => (
+                    <tr key={key} style={{ borderBottom: "1px solid #ddd" }}>
+                      <td style={{ ...tdStyle, fontWeight: "bold", whiteSpace: "nowrap" }}>{label}</td>
+                      <td style={tdStyle}><FieldValue type={type} val={result[key]} /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </>
+          )}
+
+          {raw && (
+            <>
+              <hr />
+              <h3>Raw Response</h3>
+              <pre style={{ whiteSpace: "pre-wrap", padding: "12px" }}>{raw}</pre>
+            </>
+          )}
         </>
       )}
 
-      {raw && (
-        <>
-          <hr />
-          <h3>Raw Response</h3>
-          <pre style={{ whiteSpace: "pre-wrap", padding: "12px" }}>{raw}</pre>
-        </>
-      )}
+      {tab === "browse" && <ResultsBrowser />}
     </div>
   );
 }
 
-const thStyle      = { padding: "10px 12px", textAlign: "left", border: "1px solid #ccc" };
-const tdStyle      = { padding: "8px 12px", verticalAlign: "top", border: "1px solid #ccc" };
-const innerThStyle = { padding: "4px 8px", textAlign: "left", border: "1px solid #ddd" };
-const innerTdStyle = { padding: "4px 8px", verticalAlign: "top", border: "1px solid #ddd" };
+const thStyle        = { padding: "10px 12px", textAlign: "left", border: "1px solid #ccc" };
+const tdStyle        = { padding: "8px 12px", verticalAlign: "top", border: "1px solid #ccc" };
+const innerThStyle   = { padding: "4px 8px", textAlign: "left", border: "1px solid #ddd" };
+const innerTdStyle   = { padding: "4px 8px", verticalAlign: "top", border: "1px solid #ddd" };
+const viewBtnStyle   = { padding: "4px 12px", cursor: "pointer", fontSize: "0.9em" };
+const backBtnStyle   = { padding: "5px 14px", cursor: "pointer" };
+const refreshBtnStyle = { padding: "4px 12px", cursor: "pointer", fontSize: "0.9em" };
 
 export default App;

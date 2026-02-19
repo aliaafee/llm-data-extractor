@@ -17,6 +17,9 @@ extract-webapp/server/public/
 # Uploads
 extract-webapp/server/uploads/
 
+# SQLite database
+extract-webapp/server/results.db
+
 # Logs
 logs/
 *.log

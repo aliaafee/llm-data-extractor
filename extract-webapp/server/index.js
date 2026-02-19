@@ -6,6 +6,7 @@ import OpenAI from "openai";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
+import Database from "better-sqlite3";
 
 dotenv.config();
 
@@ -18,6 +19,25 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
 
 const upload = multer({ dest: "uploads/" });
+
+// SQLite setup
+const db = new Database(path.join(__dirname, "results.db"));
+db.exec(`
+  CREATE TABLE IF NOT EXISTS results (
+    patient_id  TEXT PRIMARY KEY,
+    result      TEXT NOT NULL,
+    updated_at  TEXT NOT NULL
+  )
+`);
+const upsertResult = db.prepare(`
+  INSERT INTO results (patient_id, result, updated_at)
+  VALUES (@patient_id, @result, @updated_at)
+  ON CONFLICT(patient_id) DO UPDATE SET
+    result     = excluded.result,
+    updated_at = excluded.updated_at
+`);
+const listResults = db.prepare("SELECT patient_id, updated_at FROM results ORDER BY updated_at DESC");
+const getResult   = db.prepare("SELECT result FROM results WHERE patient_id = ?");
 
 const systemPrompt = fs.readFileSync(path.join(__dirname, "prompts", "system_prompt.txt"), "utf-8").trim();
 const userPromptTemplate = fs.readFileSync(path.join(__dirname, "prompts", "user_prompt.txt"), "utf-8").trim();
@@ -136,8 +156,23 @@ app.post("/upload", upload.single("file"), async (req, res) => {
 
     const merged = mergeResults(chunkResults);
     if (patientId) merged.patient_id = patientId;
-    send("done", { result: Object.keys(merged).length ? merged : chunkResults[0] ?? "" });
+    const finalResult = Object.keys(merged).length ? merged : chunkResults[0] ?? "";
+    send("done", { result: finalResult });
     res.end();
+
+    // Persist to SQLite
+    if (patientId && finalResult && typeof finalResult === "object") {
+      try {
+        upsertResult.run({
+          patient_id: patientId,
+          result: JSON.stringify(finalResult),
+          updated_at: new Date().toISOString(),
+        });
+        console.log(`Saved result for patient ${patientId}`);
+      } catch (dbErr) {
+        console.error("DB write failed:", dbErr);
+      }
+    }
   } catch (error) {
     console.error(error);
     res.write(`event: error\ndata: ${JSON.stringify({ error: "Something went wrong" })}\n\n`);
@@ -146,6 +181,16 @@ app.post("/upload", upload.single("file"), async (req, res) => {
 });
 
 
+
+app.get("/results", (req, res) => {
+  res.json(listResults.all());
+});
+
+app.get("/results/:patientId", (req, res) => {
+  const row = getResult.get(req.params.patientId);
+  if (!row) return res.status(404).json({ error: "Not found" });
+  res.json(JSON.parse(row.result));
+});
 
 // Catch-all: serve the React app for any unmatched route
 app.get("/{*splat}", (req, res) => {
