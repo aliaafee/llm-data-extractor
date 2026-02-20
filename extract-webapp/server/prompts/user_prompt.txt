@@ -24,7 +24,9 @@ Field rules:
 - baseline_cognitive_impairment: GCS score at admission as integer (3–15).
 - site_of_pathology: "cranial" or "spinal" only.
 - diagnosis_group: pick the single closest match from the allowed values.
-- medication lists: each entry must have name, dose, frequency, and duration; use null for a field if not documented.
+- list_of_opioids_used: Look for these opoiods Fentanyl, Morphine, Tramadol, each entry must have name, dose, frequency, and duration; use null for a field if not documented.
+- list_of_benzodiazepines_used: Look for benzodiazepines, each entry must have name, dose, frequency, and duration; use null for a field if not documented.
+- list_of_all_medications_used: Look for all medications, each entry must have name, dose, frequency, and duration; use null for a field if not documented.
 - sodium_imbalance: "Yes" if Na+ < 130 mEq (hyponatremia) or Na+ > 150 mEq (hypernatremia) was documented.
 - infection: "Yes" if a documented or presumed infection is mentioned.
 
