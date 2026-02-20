@@ -16,6 +16,7 @@ server/public/
 
 # Uploads
 server/uploads/
+server/assets/
 
 # SQLite database
 server/results.db
