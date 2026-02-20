@@ -5,8 +5,8 @@ output_data
 node_modules/
 
 # Build output
-extract-webapp/client/dist/
-extract-webapp/server/public/
+client/dist/
+server/public/
 
 # Environment variables
 .env
@@ -15,10 +15,10 @@ extract-webapp/server/public/
 !.env.example
 
 # Uploads
-extract-webapp/server/uploads/
+server/uploads/
 
 # SQLite database
-extract-webapp/server/results.db
+server/results.db
 
 # Logs
 logs/
