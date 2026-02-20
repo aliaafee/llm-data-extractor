@@ -11,7 +11,87 @@ A web application that uses a local LLM (via [LocalAI](https://localai.io)) to e
 
 ---
 
-## Project Structure
+## Linux Production Deployment (install.sh)
+
+`install.sh` is a self-contained Bash script that fully deploys the application on a Linux server.
+
+### What it does
+
+| Step | Action |
+|------|--------|
+| System packages | Installs `git`, `curl`, and C++ build tools (`build-essential` / `gcc-c++`) and `python3` — required to compile the native [`better-sqlite3`](https://github.com/WiseLibs/better-sqlite3) addon via `node-gyp` |
+| nvm + Node 22 | Installs [nvm](https://github.com/nvm-sh/nvm) under the app user's home directory and uses it to install Node.js 22 (skipped if already present) |
+| App user | Creates a dedicated system user `llm-extractor` with no login shell to run the service |
+| Clone | Clones this repository to `/opt/llm-data-extractor` (or `git pull`s if already cloned) |
+| Client build | Runs `npm ci && npm run build` inside `client/`, outputting static files to `server/public/` |
+| Server deps | Runs `npm ci` inside `server/` |
+| systemd service | Writes `/etc/systemd/system/llm-data-extractor.service` and enables + starts it |
+
+### Requirements
+
+- A Debian/Ubuntu, RHEL/Rocky, or similar Linux host
+- Root access (run with `sudo`)
+- Internet access to reach GitHub and the nvm install CDN
+
+### Usage
+
+```bash
+# 1. Get the script onto the server (copy it or clone the repo first)
+curl -fsSL https://raw.githubusercontent.com/aliaafee/llm-data-extractor/main/install.sh \
+     -o install.sh
+
+# 2. Make it executable
+chmod +x install.sh
+
+# 3. Run as root
+sudo ./install.sh
+```
+
+### Post-install: configure the environment
+
+The server requires a `.env` file before it will connect to your LLM API:
+
+```bash
+sudo nano /opt/llm-data-extractor/server/.env
+```
+
+```env
+LOCALAI_BASE_URL=http://localhost:8080/v1
+LOCALAI_MODEL=gpt-4
+CONTEXT_SIZE=3000
+PROMPT_OVERHEAD_TOKENS=1000
+```
+
+After saving, restart the service:
+
+```bash
+sudo systemctl restart llm-data-extractor
+```
+
+### Managing the service
+
+```bash
+# View live logs
+journalctl -u llm-data-extractor -f
+
+# Check status
+systemctl status llm-data-extractor
+
+# Stop / start / restart
+sudo systemctl stop llm-data-extractor
+sudo systemctl start llm-data-extractor
+sudo systemctl restart llm-data-extractor
+```
+
+### Re-running after an update
+
+Simply run `sudo ./install.sh` again. The script will pull the latest code, rebuild the client, refresh server dependencies, and restart the service.
+
+---
+
+## Local Development
+
+### Project Structure
 
 ```
 extract-webapp/
