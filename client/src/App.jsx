@@ -21,19 +21,19 @@ const FIELDS = [
   { key: "infection",                     label: "Infection",                        type: "scalar"  },
 ];
 
-const NULL_CELL = <span style={{ color: "#aaa", fontStyle: "italic" }}>—</span>;
+const NULL_CELL = <span className="text-gray-300 italic">—</span>;
 
 function ScalarValue({ val }) {
   if (val === null || val === undefined) return NULL_CELL;
   const s = String(val);
-  const color = s === "Yes" ? "#c0392b" : s === "No" ? "#27ae60" : "inherit";
-  return <span style={{ color }}>{s}</span>;
+  const color = s === "Yes" ? "text-red-600" : s === "No" ? "text-green-600" : "text-gray-800";
+  return <span className={color}>{s}</span>;
 }
 
 function ListValue({ val }) {
   if (!Array.isArray(val) || val.length === 0) return NULL_CELL;
   return (
-    <ul style={{ margin: 0, paddingLeft: "18px" }}>
+    <ul className="list-disc list-inside space-y-0.5 text-gray-800">
       {val.map((item, i) => <li key={i}>{String(item)}</li>)}
     </ul>
   );
@@ -42,21 +42,21 @@ function ListValue({ val }) {
 function MedListValue({ val }) {
   if (!Array.isArray(val) || val.length === 0) return NULL_CELL;
   return (
-    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.9em" }}>
+    <table className="w-full border-collapse text-xs">
       <thead>
-        <tr style={{}}>
+        <tr>
           {["Name", "Dose", "Frequency", "Duration"].map((h) => (
-            <th key={h} style={innerThStyle}>{h}</th>
+            <th key={h} className="px-2 py-1 text-left bg-gray-50 border border-gray-200 font-semibold text-gray-600">{h}</th>
           ))}
         </tr>
       </thead>
       <tbody>
         {val.map((med, i) => (
-          <tr key={i}>
-            <td style={innerTdStyle}>{med.name ?? NULL_CELL}</td>
-            <td style={innerTdStyle}>{med.dose ?? NULL_CELL}</td>
-            <td style={innerTdStyle}>{med.frequency ?? NULL_CELL}</td>
-            <td style={innerTdStyle}>{med.duration ?? NULL_CELL}</td>
+          <tr key={i} className="even:bg-gray-50">
+            <td className="px-2 py-1 border border-gray-200 align-top">{med.name ?? NULL_CELL}</td>
+            <td className="px-2 py-1 border border-gray-200 align-top">{med.dose ?? NULL_CELL}</td>
+            <td className="px-2 py-1 border border-gray-200 align-top">{med.frequency ?? NULL_CELL}</td>
+            <td className="px-2 py-1 border border-gray-200 align-top">{med.duration ?? NULL_CELL}</td>
           </tr>
         ))}
       </tbody>
@@ -106,30 +106,30 @@ function ResultsBrowser() {
 
   const handleBack = () => { setSelected(null); setDetail(null); };
 
-  if (error) return <p style={{ color: "red" }}>{error}</p>;
-  if (!list)  return <p style={{ color: "#555" }}>Loading…</p>;
+  if (error) return <p className="text-red-600 text-sm">{error}</p>;
+  if (!list)  return <p className="text-gray-500 text-sm">Loading…</p>;
 
   if (selected) {
     return (
       <>
-        <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "12px" }}>
-          <button onClick={handleBack} style={backBtnStyle}>← Back</button>
-          <h3 style={{ margin: 0 }}>Patient {selected}</h3>
+        <div className="flex items-center gap-3 mb-4">
+          <button onClick={handleBack} className="px-3 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-50 cursor-pointer">← Back</button>
+          <h3 className="text-lg font-semibold text-gray-800 m-0">Patient {selected}</h3>
         </div>
-        {detailLoading && <p style={{ color: "#555" }}>Loading…</p>}
+        {detailLoading && <p className="text-gray-500 text-sm">Loading…</p>}
         {detail && (
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <table className="w-full border-collapse text-sm">
             <thead>
               <tr>
-                <th style={thStyle}>Field</th>
-                <th style={thStyle}>Value</th>
+                <th className="px-3 py-2 text-left bg-gray-50 border border-gray-200 font-semibold text-gray-700 w-56">Field</th>
+                <th className="px-3 py-2 text-left bg-gray-50 border border-gray-200 font-semibold text-gray-700">Value</th>
               </tr>
             </thead>
             <tbody>
               {FIELDS.map(({ key, label, type }) => (
-                <tr key={key} style={{ borderBottom: "1px solid #ddd" }}>
-                  <td style={{ ...tdStyle, fontWeight: "bold", whiteSpace: "nowrap" }}>{label}</td>
-                  <td style={tdStyle}><FieldValue type={type} val={detail[key]} /></td>
+                <tr key={key} className="even:bg-gray-50">
+                  <td className="px-3 py-2 border border-gray-200 align-top font-medium text-gray-700 whitespace-nowrap">{label}</td>
+                  <td className="px-3 py-2 border border-gray-200 align-top"><FieldValue type={type} val={detail[key]} /></td>
                 </tr>
               ))}
             </tbody>
@@ -140,29 +140,29 @@ function ResultsBrowser() {
   }
 
   if (list.length === 0)
-    return <p style={{ color: "#777", fontStyle: "italic" }}>No processed results yet.</p>;
+    return <p className="text-gray-500 italic text-sm">No processed results yet.</p>;
 
   return (
     <>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
-        <h3 style={{ margin: 0 }}>Processed Patients</h3>
-        <button onClick={fetchList} style={refreshBtnStyle}>⟳ Refresh</button>
+      <div className="flex justify-between items-center mb-3">
+        <h3 className="text-base font-semibold text-gray-800 m-0">Processed Patients</h3>
+        <button onClick={fetchList} className="px-3 py-1 text-xs border border-gray-300 rounded hover:bg-gray-50 cursor-pointer">⟳ Refresh</button>
       </div>
-      <table style={{ width: "100%", borderCollapse: "collapse" }}>
+      <table className="w-full border-collapse text-sm">
         <thead>
           <tr>
-            <th style={thStyle}>Patient ID</th>
-            <th style={thStyle}>Processed At</th>
-            <th style={{ ...thStyle, width: "80px" }}></th>
+            <th className="px-3 py-2 text-left bg-gray-50 border border-gray-200 font-semibold text-gray-700">Patient ID</th>
+            <th className="px-3 py-2 text-left bg-gray-50 border border-gray-200 font-semibold text-gray-700">Processed At</th>
+            <th className="px-3 py-2 bg-gray-50 border border-gray-200 w-20"></th>
           </tr>
         </thead>
         <tbody>
           {list.map(({ patient_id, updated_at }) => (
-            <tr key={patient_id} style={{ borderBottom: "1px solid #ddd" }}>
-              <td style={tdStyle}>{patient_id}</td>
-              <td style={tdStyle}>{new Date(updated_at).toLocaleString()}</td>
-              <td style={tdStyle}>
-                <button onClick={() => handleSelect(patient_id)} style={viewBtnStyle}>View</button>
+            <tr key={patient_id} className="even:bg-gray-50 hover:bg-blue-50">
+              <td className="px-3 py-2 border border-gray-200 font-medium text-gray-800">{patient_id}</td>
+              <td className="px-3 py-2 border border-gray-200 text-gray-600">{new Date(updated_at).toLocaleString()}</td>
+              <td className="px-3 py-2 border border-gray-200 text-center">
+                <button onClick={() => handleSelect(patient_id)} className="px-3 py-1 text-xs border border-blue-300 text-blue-600 rounded hover:bg-blue-50 cursor-pointer">View</button>
               </td>
             </tr>
           ))}
@@ -264,63 +264,71 @@ function App() {
   const selectedItem = queue.find((i) => i.id === selected);
 
   const statusBadge = (item) => {
-    if (item.status === "pending")    return <span style={badge("gray")}>Pending</span>;
-    if (item.status === "processing") return <span style={badge("blue")}>Chunk {item.progress?.chunk ?? "…"}/{item.progress?.total ?? "…"}</span>;
-    if (item.status === "done")       return <span style={badge("green")}>Done</span>;
-    if (item.status === "error")      return <span style={badge("red")} title={item.errorMsg}>Error</span>;
+    const base = "inline-block px-2 py-0.5 rounded-full text-xs font-semibold";
+    if (item.status === "pending")    return <span className={`${base} bg-gray-100 text-gray-600`}>Pending</span>;
+    if (item.status === "processing") return <span className={`${base} bg-blue-100 text-blue-700`}>Chunk {item.progress?.chunk ?? "…"}/{item.progress?.total ?? "…"}</span>;
+    if (item.status === "done")       return <span className={`${base} bg-green-100 text-green-700`}>Done</span>;
+    if (item.status === "error")      return <span className={`${base} bg-red-100 text-red-700`} title={item.errorMsg}>Error</span>;
   };
 
   return (
-    <div style={{ padding: "40px", fontFamily: "Arial", maxWidth: "960px", margin: "0" }}>
-      <h2>Clinical Data Extractor</h2>
+    <div className="max-w-5xl mx-auto px-8 py-8 font-sans">
+      <h2 className="text-2xl font-bold text-gray-800 mb-6">Clinical Data Extractor</h2>
 
       {/* Tab bar */}
-      <div style={{ display: "flex", gap: "4px", marginBottom: "24px", borderBottom: "2px solid #ddd" }}>
+      <div className="flex border-b border-gray-200 mb-6 gap-1">
         {[["extractor", "Extractor"], ["browse", "Browse Results"]].map(([id, label]) => (
-          <button key={id} onClick={() => setTab(id)} style={{
-            padding: "8px 20px", border: "none",
-            borderBottom: tab === id ? "3px solid #2563eb" : "3px solid transparent",
-            background: "none", fontWeight: tab === id ? "bold" : "normal",
-            color: tab === id ? "#2563eb" : "#555", cursor: "pointer", fontSize: "1em", marginBottom: "-2px",
-          }}>{label}</button>
+          <button
+            key={id}
+            onClick={() => setTab(id)}
+            className={`px-5 py-2 text-sm border-b-2 -mb-px cursor-pointer ${
+              tab === id
+                ? "border-blue-600 text-blue-600 font-semibold"
+                : "border-transparent text-gray-500 hover:text-gray-700"
+            }`}
+          >{label}</button>
         ))}
       </div>
 
       {tab === "extractor" && (
         <>
-          <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
-            <input type="file" accept=".txt,.json" multiple onChange={handleFilesChange} />
-            <button onClick={handleUpload} disabled={loading || queue.length === 0}>
+          <div className="flex items-center gap-3 flex-wrap">
+            <input type="file" accept=".txt,.json" multiple onChange={handleFilesChange}
+              className="text-sm text-gray-600 file:mr-3 file:py-1.5 file:px-3 file:border file:border-gray-300 file:rounded file:text-sm file:bg-white file:cursor-pointer hover:file:bg-gray-50" />
+            <button
+              onClick={handleUpload}
+              disabled={loading || queue.length === 0}
+              className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+            >
               {loading ? `Processing… (${doneCount + errorCount}/${queue.length})` : `Upload & Analyze${queue.length > 1 ? ` (${queue.length} files)` : ""}`}
             </button>
           </div>
 
           {queue.length > 0 && (
             <>
-              <hr style={{ margin: "20px 0" }} />
-              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <hr className="my-5 border-gray-200" />
+              <table className="w-full border-collapse text-sm">
                 <thead>
                   <tr>
-                    <th style={thStyle}>File</th>
-                    <th style={thStyle}>Patient ID</th>
-                    <th style={thStyle}>Status</th>
-                    <th style={{ ...thStyle, width: "70px" }}></th>
+                    <th className="px-3 py-2 text-left bg-gray-50 border border-gray-200 font-semibold text-gray-700">File</th>
+                    <th className="px-3 py-2 text-left bg-gray-50 border border-gray-200 font-semibold text-gray-700">Patient ID</th>
+                    <th className="px-3 py-2 text-left bg-gray-50 border border-gray-200 font-semibold text-gray-700">Status</th>
+                    <th className="px-3 py-2 bg-gray-50 border border-gray-200 w-20"></th>
                   </tr>
                 </thead>
                 <tbody>
                   {queue.map((item) => (
-                    <tr key={item.id} style={{
-                      borderBottom: "1px solid #ddd",
-                      background: selected === item.id ? "#165ce7" : "transparent",
-                    }}>
-                      <td style={tdStyle}>{item.name}</td>
-                      <td style={tdStyle}>{item.patientId ?? NULL_CELL}</td>
-                      <td style={tdStyle}>{statusBadge(item)}</td>
-                      <td style={tdStyle}>
+                    <tr key={item.id} className={`even:bg-gray-50 ${
+                      selected === item.id ? "bg-blue-50" : ""
+                    }`}>
+                      <td className="px-3 py-2 border border-gray-200 text-gray-800">{item.name}</td>
+                      <td className="px-3 py-2 border border-gray-200 text-gray-700">{item.patientId ?? NULL_CELL}</td>
+                      <td className="px-3 py-2 border border-gray-200">{statusBadge(item)}</td>
+                      <td className="px-3 py-2 border border-gray-200 text-center">
                         {item.status === "done" && (
                           <button
                             onClick={() => setSelected(selected === item.id ? null : item.id)}
-                            style={viewBtnStyle}
+                            className="px-3 py-1 text-xs border border-blue-300 text-blue-600 rounded hover:bg-blue-50 cursor-pointer"
                           >
                             {selected === item.id ? "Hide" : "View"}
                           </button>
@@ -332,22 +340,22 @@ function App() {
               </table>
 
               {selectedItem?.result && (
-                <div style={{ marginTop: "16px" }}>
-                  <h3 style={{ marginBottom: "8px" }}>
+                <div className="mt-5">
+                  <h3 className="text-base font-semibold text-gray-800 mb-3">
                     Extracted Data — Patient {selectedItem.patientId ?? selectedItem.name}
                   </h3>
-                  <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                  <table className="w-full border-collapse text-sm">
                     <thead>
                       <tr>
-                        <th style={thStyle}>Field</th>
-                        <th style={thStyle}>Value</th>
+                        <th className="px-3 py-2 text-left bg-gray-50 border border-gray-200 font-semibold text-gray-700 w-56">Field</th>
+                        <th className="px-3 py-2 text-left bg-gray-50 border border-gray-200 font-semibold text-gray-700">Value</th>
                       </tr>
                     </thead>
                     <tbody>
                       {FIELDS.map(({ key, label, type }) => (
-                        <tr key={key} style={{ borderBottom: "1px solid #ddd" }}>
-                          <td style={{ ...tdStyle, fontWeight: "bold", whiteSpace: "nowrap" }}>{label}</td>
-                          <td style={tdStyle}><FieldValue type={type} val={selectedItem.result[key]} /></td>
+                        <tr key={key} className="even:bg-gray-50">
+                          <td className="px-3 py-2 border border-gray-200 align-top font-medium text-gray-700 whitespace-nowrap">{label}</td>
+                          <td className="px-3 py-2 border border-gray-200 align-top"><FieldValue type={type} val={selectedItem.result[key]} /></td>
                         </tr>
                       ))}
                     </tbody>
@@ -363,25 +371,5 @@ function App() {
     </div>
   );
 }
-
-const thStyle        = { padding: "10px 12px", textAlign: "left", border: "1px solid #ccc" };
-const tdStyle        = { padding: "8px 12px", verticalAlign: "top", border: "1px solid #ccc" };
-const innerThStyle   = { padding: "4px 8px", textAlign: "left", border: "1px solid #ddd" };
-const innerTdStyle   = { padding: "4px 8px", verticalAlign: "top", border: "1px solid #ddd" };
-const viewBtnStyle   = { padding: "4px 12px", cursor: "pointer", fontSize: "0.9em" };
-const backBtnStyle   = { padding: "5px 14px", cursor: "pointer" };
-const refreshBtnStyle = { padding: "4px 12px", cursor: "pointer", fontSize: "0.9em" };
-
-const BADGE_COLORS = {
-  gray:  { background: "#e5e7eb", color: "#374151" },
-  blue:  { background: "#dbeafe", color: "#1d4ed8" },
-  green: { background: "#dcfce7", color: "#15803d" },
-  red:   { background: "#fee2e2", color: "#b91c1c" },
-};
-const badge = (color) => ({
-  display: "inline-block", padding: "2px 8px", borderRadius: "10px",
-  fontSize: "0.82em", fontWeight: "600", whiteSpace: "nowrap",
-  ...BADGE_COLORS[color],
-});
 
 export default App;
