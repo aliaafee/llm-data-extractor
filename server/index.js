@@ -16,6 +16,24 @@ const __dirname = path.dirname(__filename);
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+// HTTP Basic Auth
+const BASIC_AUTH_USER = process.env.BASIC_AUTH_USER || "admin";
+const BASIC_AUTH_PASS = process.env.BASIC_AUTH_PASS || "changeme";
+app.use((req, res, next) => {
+  const authHeader = req.headers["authorization"];
+  if (!authHeader || !authHeader.startsWith("Basic ")) {
+    res.set("WWW-Authenticate", 'Basic realm="LLM Data Extractor"');
+    return res.status(401).send("Authentication required.");
+  }
+  const [user, pass] = Buffer.from(authHeader.slice(6), "base64").toString().split(":");
+  if (user !== BASIC_AUTH_USER || pass !== BASIC_AUTH_PASS) {
+    res.set("WWW-Authenticate", 'Basic realm="LLM Data Extractor"');
+    return res.status(401).send("Invalid credentials.");
+  }
+  next();
+});
+
 app.use(express.static(path.join(__dirname, "public")));
 
 const upload = multer({ dest: "uploads/" });
