@@ -60,7 +60,13 @@ LOCALAI_BASE_URL=http://localhost:8080/v1
 LOCALAI_MODEL=gpt-4
 CONTEXT_SIZE=3000
 PROMPT_OVERHEAD_TOKENS=1000
+
+# HTTP Basic Auth
+BASIC_AUTH_USER=admin
+BASIC_AUTH_PASS=changeme
 ```
+
+> **Important:** Change `BASIC_AUTH_PASS` to a strong password before starting the service.
 
 After saving, restart the service:
 
@@ -134,6 +140,10 @@ CONTEXT_SIZE=3000
 # Tokens reserved for system/user prompt overhead and the response
 # Increase this if you get truncated or malformed responses
 PROMPT_OVERHEAD_TOKENS=1000
+
+# HTTP Basic Auth credentials
+BASIC_AUTH_USER=admin
+BASIC_AUTH_PASS=changeme
 ```
 
 | Variable               | Description                                                          | Default                    |
@@ -142,6 +152,8 @@ PROMPT_OVERHEAD_TOKENS=1000
 | `LOCALAI_MODEL`        | Model identifier to use for completions                              | `gpt-4`                    |
 | `CONTEXT_SIZE`         | Context window of the model in tokens                                | `4096`                     |
 | `PROMPT_OVERHEAD_TOKENS` | Tokens to reserve for prompts and response, reducing chunk size    | `800`                      |
+| `BASIC_AUTH_USER`      | Username for HTTP Basic Auth                                         | `admin`                    |
+| `BASIC_AUTH_PASS`      | Password for HTTP Basic Auth — **change this**                       | `changeme`                 |
 
 ---
 
