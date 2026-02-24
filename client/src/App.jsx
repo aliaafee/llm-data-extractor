@@ -7,6 +7,7 @@ import { useState, useEffect, useCallback } from "react";
 const FIELDS = [
   { key: "patient_id",                    label: "Patient ID",                       type: "scalar"  },
   { key: "delirium",                      label: "Delirium",                         type: "scalar"  },
+  { key: "details_of_delirium",           label: "Details of Delirium",              type: "scalar"  },
   { key: "age",                           label: "Age (years)",                      type: "scalar"  },
   { key: "sex",                           label: "Sex",                              type: "scalar"  },
   { key: "comorbidities",                 label: "Comorbidities",                    type: "list"    },
