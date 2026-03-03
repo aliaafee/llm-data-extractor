@@ -18,8 +18,10 @@ const FIELDS = [
   { key: "list_of_opioids_used",          label: "Opioids Used",                     type: "medlist" },
   { key: "list_of_benzodiazepines_used",  label: "Benzodiazepines Used",             type: "medlist" },
   { key: "list_of_all_medications_used",  label: "All Medications Used",             type: "medlist" },
-  { key: "sodium_imbalance",              label: "Sodium Imbalance",                 type: "scalar"  },
+  { key: "sodium_imbalance",              label: "Sodium Imbalance",                type: "scalar"  },
+  { key: "details_of_sodium_imbalance",   label: "Details of Sodium Imbalance",     type: "scalar"  },
   { key: "infection",                     label: "Infection",                        type: "scalar"  },
+  { key: "details_of_infection",          label: "Details of Infection",             type: "scalar"  },
 ];
 
 const NULL_CELL = <span className="text-gray-300 italic">—</span>;

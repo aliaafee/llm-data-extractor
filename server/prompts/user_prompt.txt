@@ -14,12 +14,14 @@ Extract values from the clinical note below and return a JSON object that strict
   "list_of_benzodiazepines_used": [{"name": "<string>", "dose": "<string>", "frequency": "<string>", "duration": "<string>"}] | null,
   "list_of_all_medications_used": [{"name": "<string>", "dose": "<string>", "frequency": "<string>", "duration": "<string>"}] | null,
   "sodium_imbalance":            "Yes" | "No" | null,
+  "details_of_sodium_imbalance":  "string" | null
   "infection":                   "Yes" | "No" | null
+  "details_of_infection":         "string" | null
 }
 
 Field rules:
 - delirium: "Yes" only if delirium was diagnosed by a treating physician (Neurosurgeon, Intensivist, or Psychiatrist).
-- details_of_delirium: Details of how the diagnosis of delirum was made and by whom.
+- details_of_delirium: Details of how the diagnosis of delirum was made and by whom and on what day of admission.
 - age: integer number of years only.
 - sex: biological sex, "Male" or "Female" only.
 - comorbidities: array of condition name strings; use null if none documented.
@@ -30,7 +32,9 @@ Field rules:
 - list_of_benzodiazepines_used: Look for benzodiazepines, each entry must have name, dose, frequency, and duration; use null for a field if not documented.
 - list_of_all_medications_used: Look for all medications, each entry must have name, dose, frequency, and duration; use null for a field if not documented.
 - sodium_imbalance: "Yes" if Na+ < 130 mEq (hyponatremia) or Na+ > 150 mEq (hypernatremia) was documented.
+- details_of_sodium_imbalance: Details of the lab values and day of admission where the imbalance was detected
 - infection: "Yes" if a documented or presumed infection is mentioned.
+- details_of_infection: Details of the way infection was detected and day of admission where the infection was detected
 
 Clinical Note:
 """
